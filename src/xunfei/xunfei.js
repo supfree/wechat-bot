@@ -1,14 +1,13 @@
 import CryptoJS from 'crypto-js'
-import dotenv from 'dotenv'
 import WebSocket from 'ws'
+import { XUNFEI_APP_ID,XUNFEI_API_KEY,XUNFEI_API_SECRET } from '../../config.js'
 
-const env = dotenv.config().parsed // 环境参数
 // APPID，APISecret，APIKey在https://console.xfyun.cn/services/cbm这里获取
 // 星火认知大模型WebAPI文档:https://www.xfyun.cn/doc/spark/Web.html
 // SDK&API错误码查询:https://www.xfyun.cn/document/error-code?code=
-const appID = env.XUNFEI_APP_ID
-const apiKey = env.XUNFEI_API_KEY
-const apiSecret = env.XUNFEI_API_SECRET
+const appID = XUNFEI_APP_ID
+const apiKey = XUNFEI_API_KEY
+const apiSecret = XUNFEI_API_SECRET
 // 地址必须填写，代表着大模型的版本号！！！！！！！！！！！！！！！！
 const httpUrl = new URL('https://spark-api.xf-yun.com/v3.5/chat')
 

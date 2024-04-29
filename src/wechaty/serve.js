@@ -1,6 +1,8 @@
 import { getGptReply } from '../openai/index.js'
 import { getKimiReply } from '../kimi/index.js'
 import { getXunfeiReply } from '../xunfei/index.js'
+import { getFastGptReplay } from '../fastgtp/index.js'
+import { getDifyReplay } from '../dify/index.js'
 
 
 /**
@@ -16,6 +18,10 @@ export function getServe(serviceType) {
       return getKimiReply
     case 'Xunfei':
       return getXunfeiReply
+    case 'Dify':
+      return getDifyReplay
+    case 'FastGpt':
+      return getFastGptReplay
     default:
       return getGptReply
   }

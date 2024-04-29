@@ -1,6 +1,5 @@
 import axios from 'axios'
-import dotenv from 'dotenv'
-const env = dotenv.config().parsed // 环境参数
+import { KIMI_API_KEY } from '../../config.js'
 
 const domain = 'https://api.moonshot.cn'
 const server = {
@@ -56,7 +55,7 @@ export async function getKimiReply(prompt) {
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.KIMI_API_KEY}`
+        'Authorization': `Bearer ${KIMI_API_KEY}`
       },
       // pass a http proxy agent
       // proxy: {

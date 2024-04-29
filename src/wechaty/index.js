@@ -3,8 +3,24 @@ import inquirer from 'inquirer'
 import qrTerminal from 'qrcode-terminal'
 import { defaultMessage, shardingMessage } from './sendMessage.js'
 import dotenv from 'dotenv'
-const env = dotenv.config().parsed // 环境参数
 import fs from 'fs'
+import os from 'os'
+import crypto from 'crypto'
+import moment from 'moment'
+import {     SN,  
+  OPENAI_API_URL,  
+  OPENAI_API_KEY,  
+  KIMI_API_KEY,  
+  XUNFEI_APP_ID,  
+  XUNFEI_API_KEY,  
+  XUNFEI_API_SECRET,  
+  DIFY_API_URL,  
+  DIFY_API_KEY,  
+  FASTGPT_API_URL,  
+  FASTGPT_API_KEY  , autoAcceptFriend, autoAcceptFriendKeywords, autoFriendshipReply, autoFriendshipReplyContent, autoRoomJoinReply, autoRoomJoinReplyContent } from '../../config.js'
+
+const env = dotenv.config().parsed // 环境参数
+
 
 // 扫码
 function onScan(qrcode, status) {
@@ -12,32 +28,81 @@ function onScan(qrcode, status) {
     // 在控制台显示二维码
     qrTerminal.generate(qrcode, { small: true })
     const qrcodeImageUrl = ['https://api.qrserver.com/v1/create-qr-code/?data=', encodeURIComponent(qrcode)].join('')
-    console.log('onScan:', qrcodeImageUrl, ScanStatus[status], status)
+    console.log('扫码:', qrcodeImageUrl, ScanStatus[status], status)
   } else {
-    log.info('onScan: %s(%s)', ScanStatus[status], status)
+    log.info('扫码: %s(%s)', ScanStatus[status], status)
   }
 }
 
 // 登录
 function onLogin(user) {
-  console.log(`${user} has logged in`)
+  console.log(`${user} 已经登录`)
   const date = new Date()
-  console.log(`Current time:${date}`)
-  console.log(`Automatic robot chat mode has been activated`)
+  console.log(`当前时间 :${date}`)
+  console.log(`微信机器人已激活`)
 }
 
 // 登出
 function onLogout(user) {
-  console.log(`${user} has logged out`)
+  console.log(`${user} 已经退出登录`)
+  process.exit();
 }
 
 // 收到好友请求
 async function onFriendShip(friendship) {
-  const frienddShipRe = /chatgpt|chat/
   if (friendship.type() === 2) {
-    if (frienddShipRe.test(friendship.hello())) {
+    if (autoAcceptFriend && (autoAcceptFriendKeywords.some(keyword => friendship.hello().includes(keyword)) || autoAcceptFriendKeywords.length === 0)) {
       await friendship.accept()
+      const contact = friendship.contact();
+      if (autoFriendshipReply) { //主动打招呼
+        await contact.say(autoFriendshipReplyContent)
+      }
     }
+  }
+}
+
+// 有人加入群
+async function onRoomJoin(room, inviteeList, inviter) {
+  if (!autoRoomJoinReply) {
+    return;
+  }
+  for (const invitee of inviteeList) {
+    const name = invitee.name();;
+    await room.say(`@${name} ${autoRoomJoinReplyContent}`);
+  }
+
+}
+
+//获得机器码
+function getMachineCode() {
+  const hostname = os.hostname();
+  const hash = crypto.createHash('md5').update(hostname).digest('hex').toUpperCase();
+  return hash;
+}
+
+// 解析激活码中的时间戳  
+function parseTimestampFromActivationCode(activationCode) {
+  const timestampString = activationCode.slice(-10);
+  return parseInt(timestampString, 10); // 将字符串转换为整数  
+}
+
+// 验证激活码是否有效（是否在生成后的一年内）  
+function validateActivationCode(machineCode, activationCode) {
+  try {
+    const parsedTimestamp = parseTimestampFromActivationCode(activationCode);
+    const currentTimestamp = Math.round(Date.now() / 1000);
+    const oneYearLater = moment.unix(parsedTimestamp).add(1, 'year').unix();
+
+    // 检查当前时间是否在激活码生成时间之后且一年内  
+    if (currentTimestamp >= parsedTimestamp && currentTimestamp <= oneYearLater) {
+      const regeneratedActivationCodeHash = crypto.createHash('sha256').update(`${machineCode}${parsedTimestamp}`).digest('hex');
+      const regeneratedActivationCode = `${regeneratedActivationCodeHash}${parsedTimestamp}`;
+      return regeneratedActivationCode === activationCode;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error validating activation code:', error.message);
+    return false;
   }
 }
 
@@ -48,6 +113,7 @@ async function onFriendShip(friendship) {
  * @returns {Promise<void>}
  */
 async function onMessage(msg) {
+  const msg2 = {}
   // 默认消息回复
   await defaultMessage(msg, bot, serviceType)
   // 消息分片
@@ -55,6 +121,12 @@ async function onMessage(msg) {
 }
 
 // 初始化机器人
+const validationResult = validateActivationCode(getMachineCode(), SN);
+if (validationResult !== true) {
+  console.log('激活码错误或已失效');
+  process.exit();
+}
+
 const CHROME_BIN = process.env.CHROME_BIN ? { endpoint: process.env.CHROME_BIN } : {}
 let serviceType = ''
 export const bot = WechatyBuilder.build({
@@ -77,55 +149,65 @@ bot.on('logout', onLogout)
 bot.on('message', onMessage)
 // 添加好友
 bot.on('friendship', onFriendShip)
+// 有人加入群
+bot.on('room-join', onRoomJoin)
 // 错误
 bot.on('error', (e) => {
-  console.error('bot error❌: ', e)
-  console.log('❌ 程序退出,请重新运行程序')
-  bot.stop()
+  console.error('错误信息: ', e)
+  //bot.stop()
 
   // 如果 WechatEveryDay.memory-card.json 文件存在，删除
   if (fs.existsSync('WechatEveryDay.memory-card.json')) {
     fs.unlinkSync('WechatEveryDay.memory-card.json')
   }
-  process.exit()
+  //process.exit()
 })
 // 启动微信机器人
 function botStart() {
   bot
     .start()
-    .then(() => console.log('Start to log in wechat...'))
-    .catch((e) => console.error('botStart error❌: ', e))
+    .then(() => console.log('正在登录微信...'))
+    .catch((e) => console.error('启动错误: ', e))
 }
 
 // 控制启动
 function handleStart(type) {
   serviceType = type
-  console.log('🌸🌸🌸 / type: ', type)
+  console.log('类型: ', type)
   switch (type) {
     case 'ChatGPT':
-      if (env.OPENAI_API_KEY) return botStart()
-      console.log('❌ 请先配置.env文件中的 OPENAI_API_KEY')
+      if (OPENAI_API_URL&&OPENAI_API_KEY) return botStart()
+      console.log('请先配置 OPENAI_API_URL，OPENAI_API_KEY')
       break
     case 'Kimi':
-      if (env.KIMI_API_KEY) return botStart()
-      console.log('❌ 请先配置.env文件中的 KIMI_API_KEY')
+      if (KIMI_API_KEY) return botStart()
+      console.log('请先配置 KIMI_API_KEY')
       break
     case 'Xunfei':
-      if (env.XUNFEI_APP_ID && env.XUNFEI_API_KEY && env.XUNFEI_API_SECRET) {
+      if (XUNFEI_APP_ID && XUNFEI_API_KEY && XUNFEI_API_SECRET) {
         return botStart()
       }
-      console.log('❌ 请先配置.env文件中的 XUNFEI_APP_ID，XUNFEI_API_KEY，XUNFEI_API_SECRET')
+      console.log('请先配置 XUNFEI_APP_ID，XUNFEI_API_KEY，XUNFEI_API_SECRET')
+      break
+    case 'Dify':
+      if (DIFY_API_URL && DIFY_API_KEY) return botStart()
+      console.log('请先配置 DIFY_API_URL，DIFY_API_KEY')
+      break
+    case 'FastGpt':
+      if (FASTGPT_API_URL && FASTGPT_API_KEY) return botStart()
+      console.log('请先配置 FASTGPT_API_URL，FASTGPT_API_KEY')
       break
     default:
-      console.log('🚀服务类型错误')
+      console.log('服务类型错误')
   }
 }
 
 const serveList = [
+  { name: 'Dify', value: 'Dify' },
+  { name: 'FastGpt', value: 'FastGpt' },
   { name: 'ChatGPT', value: 'ChatGPT' },
   { name: 'Kimi', value: 'Kimi' },
   { name: 'Xunfei', value: 'Xunfei' },
-  // ... 欢迎大家接入更多的服务
 ]
 const questions = [
   {
@@ -142,7 +224,7 @@ function init() {
       handleStart(res.serviceType)
     })
     .catch((error) => {
-      console.log('🚀error:', error)
+      console.log('错误信息:', error)
     })
 }
 init()

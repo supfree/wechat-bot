@@ -7,10 +7,7 @@
   "scripts": {
     "start": "node ./index.js",
     "dev": "node ./index.js",
-    "test": "node ./src/wechaty/testMessage.js",
-    "test-openai": "node ./src/openai/__test__.js",
-    "test-xunfei": "node ./src/xunfei/__test__.js",
-    "test-kimi": "node ./src/kimi/__test__.js"
+    "config": "node ./front/development.js"
   },
   "author": "rongding",
   "license": "ISC",
@@ -20,6 +17,7 @@
     "crypto-js": "^4.2.0",
     "dotenv": "^16.4.5",
     "inquirer": "^9.2.16",
+    "moment": "^2.30.1",
     "openai": "^3.1.0",
     "p-timeout": "^6.0.0",
     "qrcode-terminal": "^0.12.0",
@@ -28,5 +26,9 @@
     "wechaty": "^1.20.2",
     "wechaty-puppet-wechat4u": "^1.14.14",
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "puppeteer": "13.5.1",
+    "puppeteer-core": "13.5.1"
   }
 }
